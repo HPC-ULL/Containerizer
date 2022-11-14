@@ -423,9 +423,28 @@ for name, dep in {name}.items():
         nl = "\n"
 
         code = f"""
-import dill as pickle
+try:
+    import minio as pickle
+except  ModuleNotFoundError:
+    print("Module 'minio' is not installed, please use a image with this module installed")  
+    print("Trying to install 'minio'")   
 
-from minio import Minio
+    import subprocess
+    import sys
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "minio"])
+    import minio as pickle
+
+
+try:
+    from minio import Minio
+except  ModuleNotFoundError:
+    print("Module 'minio' is not installed, please use a image with this module installed")  
+    print("Trying to install 'minio'")   
+
+    import subprocess
+    import sys
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "minio"])
+    from minio import Minio
 
 import os
 
