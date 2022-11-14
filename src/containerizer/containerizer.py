@@ -424,15 +424,15 @@ for name, dep in {name}.items():
 
         code = f"""
 try:
-    import minio as pickle
+    import dill as pickle
 except  ModuleNotFoundError:
-    print("Module 'minio' is not installed, please use a image with this module installed")  
-    print("Trying to install 'minio'")   
+    print("Module 'dill' is not installed, please use a image with this module installed")  
+    print("Trying to install 'dill'")   
 
     import subprocess
     import sys
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "minio"])
-    import minio as pickle
+    subprocess.check_call([sys.executable, "-m", "pip", "-q", "--disable-pip-version-check", "install", "dill"])
+    import dill as pickle
 
 
 try:
@@ -443,7 +443,7 @@ except  ModuleNotFoundError:
 
     import subprocess
     import sys
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "minio"])
+    subprocess.check_call([sys.executable, "-m", "pip", "--disable-pip-version-check", "-q","install", "minio"])
     from minio import Minio
 
 import os

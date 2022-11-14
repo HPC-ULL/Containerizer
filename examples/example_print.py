@@ -1,10 +1,10 @@
-from containerizer.containerizer import Containerize
+from containerizer import Containerizer
 
 
 def printtext(args):
-    pass
+    print(args)
     
-x = Containerize(printtext, args=["Hola mundo\n" * 10], minio_ip = "localhost:9000", image = "localhost:31320/containerizerid:3.9.13")
+x = Containerizer(printtext, args=["Hola mundo\n" * 10], minio_ip = "localhost:9000", image = "python:3.9.13")
 
 x.start()
 
