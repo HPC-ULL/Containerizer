@@ -1,4 +1,4 @@
-# Foobar
+# Containerizer
 
 Containerizer is a tool to run python functions in kubernetes containers
 
