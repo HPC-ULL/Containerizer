@@ -1,1 +1,1 @@
-from containerizer import Containerizer
+from .containerizer import Containerizer, containerize
