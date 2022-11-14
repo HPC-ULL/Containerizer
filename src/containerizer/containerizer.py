@@ -413,10 +413,9 @@ for name, dep in {name}.items():
             function_source=""
         else:
             function_source = getsource(self.function,lstrip=True)
-            
-        if(function_source[0] == "@"):
-            import re
-            function_source = re.sub(r"@containerize(.*)\n", "", function_source)
+            if(function_source[0] == "@"):
+                import re
+                function_source = re.sub(r"@containerize(.*)\n", "", function_source)
 
 
         #self.uploadVariable(args, "args", prefix="tmp")
