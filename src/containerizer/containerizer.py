@@ -53,7 +53,7 @@ def containerize(join=True,*args, **kwargs, ):
     def decorator(func):
         def wrapper(*func_args, **func_kwargs):
             print(func)
-            x = Containerize(func,args=func_args,*args,**kwargs, globals = globals)
+            x = Containerizer(func,args=func_args,*args,**kwargs, globals = globals)
             x.start()
             if(join):
                 return x.join()
@@ -65,7 +65,7 @@ def containerize(join=True,*args, **kwargs, ):
 
 
 
-class Containerize():
+class Containerizer():
 
     def __init__(
         self, 
@@ -109,7 +109,6 @@ class Containerize():
 
         self.registry_ip = "localhost:31320"
 
-        minio_ip = "localhost:9000"
 
         self.id = str(uuid.uuid4())[:8]
 
