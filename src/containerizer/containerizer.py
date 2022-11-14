@@ -409,7 +409,11 @@ for name, dep in {name}.items():
             self.image = self.get_image(self.dependencies["installs"])
 
 
-        function_source = getsource(self.function,lstrip=True)
+        if(inspect.isbuiltin(self.function)):
+            function_source=""
+        else:
+            function_source = getsource(self.function,lstrip=True)
+            
         if(function_source[0] == "@"):
             import re
             function_source = re.sub(r"@containerize(.*)\n", "", function_source)
