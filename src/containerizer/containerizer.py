@@ -1,5 +1,5 @@
 
-from typing import List, Callable, Dict, TYPE_CHECKING
+from typing import List, Callable, Dict
 
 from pprint import pprint
 from importlib_metadata import packages_distributions
@@ -22,18 +22,16 @@ from io import StringIO
 
 import uuid
 
-import docker
+
 from minio import Minio
 
 from kubernetes import client, config, watch
-from kubernetes.stream import stream
 from kubernetes.watch import watch
 import base64
 from types import ModuleType
 
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
 
 BUCKET_PATH = ".kubetmp"
 
@@ -112,8 +110,6 @@ class Containerize():
         self.registry_ip = "localhost:31320"
 
         minio_ip = "localhost:9000"
-
-        self.dockerClient = docker.from_env()
 
         self.id = str(uuid.uuid4())[:8]
 
@@ -244,26 +240,29 @@ class Containerize():
         return dependencies
 
 
-    def image_exist(
-        self, 
-        imageName):
-
-        try:
-            self.dockerClient.images.pull(imageName)
-            return True
-        except docker.errors.NotFound:
-            return False
 
     def get_image(
         self, 
         installs, 
         dependencies=[]):
+        
+        import docker
+
+        docker_client = docker.from_env()
 
         dependencies.sort()
 
         imageName = f"""{self.registry_ip}/containerizeri{"_".join(sorted(list(map(str,installs))))}d{"_".join(sorted(list(map(str,dependencies))))}:{platform.python_version()}"""
 
-        if (self.image_exist(imageName)):
+        #Check if image exists
+        try:
+            docker_client.images.pull(imageName)
+            exists =  True
+        except docker.errors.NotFound:
+            exists = False
+
+
+        if (exists):
             print(f"La imagen '{imageName}' ya está presente en el registro")
             return imageName
 
@@ -290,12 +289,12 @@ class Containerize():
 
         print(f"Creating image {imageName}")
         print(f"Dockerfile:\n{dockerFileTemplate}")
-        self.dockerClient.images.build(path=dockerFilePath, tag=imageName)
+        docker_client.images.build(path=dockerFilePath, tag=imageName)
 
         os.remove(os.path.join(dockerFilePath, "Dockerfile"))
 
         print(f"Pushing image {imageName}")
-        self.dockerClient.images.push(imageName)
+        docker_client.images.push(imageName)
 
         return imageName
 

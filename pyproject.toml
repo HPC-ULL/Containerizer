@@ -4,7 +4,8 @@ requires = [
         'minio',
         'dill',
         'docker',
-        'importlib_metadata']
+        'importlib_metadata',
+        "colorama"]
 
 build-backend = "setuptools.build_meta"
 
