@@ -3,6 +3,11 @@
 Containerizer is a tool to run python functions in kubernetes containers
 
 ## Installation
+Deploy the Kubernetes objects:
+```bash
+kubectl apply -f yamls/*
+```
+
 
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install Containerizer.
 

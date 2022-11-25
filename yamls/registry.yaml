@@ -14,21 +14,13 @@ spec:
       labels:
         app: private-repository-k8s
     spec:
-      volumes:
-      - name: registry-vol
-        hostPath:
-          path: '/run/desktop/mnt/host/c/Users/danis/Documents/images'
-          type: Directory
-
       containers:
         - image: registry:2
           name: private-repository-k8s
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
-          volumeMounts:
-          - name: registry-vol
-            mountPath: /var/lib/registry
+
 ---
 apiVersion: v1
 kind: Service
