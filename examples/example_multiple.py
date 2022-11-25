@@ -2,7 +2,8 @@
 
 from time import sleep
 import dill as dill
-from containerizer.containerizer import Containerize
+from containerizer import Containerizer
+
 
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import OneHotEncoder
@@ -33,7 +34,7 @@ def train(X_train, X_test, y_train, y_test):
 
 containers = []
 for i in range(10):
-    containers.append(Containerize(train, args=(X_train, X_test, y_train, y_test)))
+    containers.append(Containerizer(train, args=(X_train, X_test, y_train, y_test)))
 
 
 for container in containers:

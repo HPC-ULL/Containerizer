@@ -5,7 +5,8 @@ from torchvision.datasets import FashionMNIST
 
 from torchvision.transforms import ToTensor, Lambda, Compose
 
-from containerizer.containerizer import Containerize
+from containerizer import Containerizer
+
 
 # Download training data from open datasets.
 training_data = FashionMNIST(
@@ -115,7 +116,7 @@ RPC gRPC
 
 
 """
-x = Containerize(training, args=(train_dataloader, test_dataloader), installs = ["torchvision"])
+x = Containerizer(training, args=(train_dataloader, test_dataloader), installs = ["torchvision"])
 
 x.start()
 x.join() 

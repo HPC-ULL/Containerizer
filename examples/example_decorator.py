@@ -1,4 +1,4 @@
-from containerizer.containerizer import containerize
+from containerizer import containerize
 
 
 @containerize(minio_ip = "localhost:9000")

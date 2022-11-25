@@ -1,7 +1,6 @@
 
 from typing import List, Callable, Dict
 
-from pprint import pprint
 from importlib_metadata import packages_distributions
 import atexit
 import platform
@@ -9,8 +8,7 @@ from dill.source import getsource, isfrommain, getimport
 
 from dill.detect import getmodule
 
-from colorama import Fore
-from colorama import Style
+from colorama import Fore,Style
 import inspect
 import os
 from time import sleep
@@ -22,6 +20,9 @@ from io import StringIO
 
 import uuid
 
+import logging
+logging.basicConfig()
+logging.getLogger().setLevel(logging.INFO)
 
 from minio import Minio
 
@@ -33,26 +34,12 @@ from types import ModuleType
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-BUCKET_PATH = ".kubetmp"
-
-
-"""
-Usos:
-
--Entrenamientos de machine learning
--Paralelizacion de ejecuciones en contenedores (en caso de que no se necesite memoria compartida)
--Aprovechar de manera fácil la potencia de un clúster de Kubernetes
--Procesamiento de imágenes
--Alternativa a threads
-
-"""
-
 def containerize(join=True,*args, **kwargs, ):
 
     globals = inspect.currentframe().f_back.f_globals
     def decorator(func):
         def wrapper(*func_args, **func_kwargs):
-            print(func)
+            logging.info(func)
             x = Containerizer(func,args=func_args,*args,**kwargs, globals = globals)
             x.start()
             if(join):
@@ -78,9 +65,13 @@ class Containerizer():
         extra_imports: List = [], 
         dependencies=None, 
         recurse_dependencies: bool = True, 
-        minio_ip: str = None, 
+        minio_ip: str = None,
+        registry_ip : str = None,
+        namespace : str = "containerizer",
         access_key: str = None, 
-        secret_key: str = None, 
+        secret_key: str = None,
+        bucket_path : str = ".kubetmp",
+        bucket : str = "containerizer",
         globals: Dict = None):
 
         self.image = image
@@ -107,9 +98,6 @@ class Containerizer():
 
         self.copy_files = dependencies
 
-        self.registry_ip = "localhost:31320"
-
-
         self.id = str(uuid.uuid4())[:8]
 
         self.tmpFolder = "tmp"
@@ -119,43 +107,54 @@ class Containerizer():
 
         self.kuberesources = None
 
-        self.namespace = "argo"
+        self.namespace = namespace
 
         self.podName = None
 
         config.load_kube_config()
         self.kubeApi = client.CoreV1Api()
 
+        if not registry_ip:
+            registry_ip= self.kubeApi.read_namespaced_service(
+                "private-repository-k8s", self.namespace).spec.external_i_ps[0] + ":5000"
+
         if not minio_ip:
             minio_ip = self.kubeApi.read_namespaced_service(
-                "minio", self.namespace).status.load_balancer.ingress[0].ip + ":9000"
+                "minio", self.namespace).spec.external_i_ps[0] + ":9000"
 
-        artifactsConfig = yaml.safe_load(self.kubeApi.read_namespaced_config_map(
-            "artifact-repositories", "argo").data["default-v1"])["s3"]
+            # minio_ip = self.kubeApi.read_namespaced_service(
+            #     "minio", self.namespace).status.load_balancer.ingress[0].ip + ":9000"
+
 
         if not access_key:
             access_key = base64.b64decode(self.kubeApi.read_namespaced_secret(
-                artifactsConfig["accessKeySecret"]["name"], self.namespace).data[artifactsConfig["accessKeySecret"]["key"]]).decode("utf-8")
+                "my-minio-cred", self.namespace).data["accesskey"]).decode("utf-8")
         if not secret_key:
             secret_key = base64.b64decode(self.kubeApi.read_namespaced_secret(
-                artifactsConfig["secretKeySecret"]["name"], self.namespace).data[artifactsConfig["secretKeySecret"]["key"]]).decode("utf-8")
+                "my-minio-cred", self.namespace).data["secretkey"]).decode("utf-8")
 
         self.minioclient = Minio(
             minio_ip,
             access_key=access_key,
             secret_key=secret_key,
-            secure=not artifactsConfig["insecure"]
+            secure=False
         )
 
+        self.minioclient.make_bucket(bucket)
+  
         self.access_key = access_key
         self.secret_key = secret_key
 
-        self.bucket = artifactsConfig["bucket"]
+        self.registry_ip = registry_ip
+
+
+        self.bucket = bucket
+        self.bucket_path = bucket_path
 
         if not self.minioclient.bucket_exists(self.bucket):
             self.minioclient.make_bucket(self.bucket)
 
-        atexit.register(lambda: self.delete_files(f"{BUCKET_PATH}/{self.id}/"))
+        atexit.register(lambda: self.delete_files(f"{self.bucket_path}/{self.id}/"))
 
     def get_object_var_names(
         self, 
@@ -192,8 +191,8 @@ class Containerizer():
 
         self.get_dependencies_recurse(obj, dependencies, globals, recurse)
 
-        print("Dependencies:")
-        pprint(dependencies)
+        logging.info("Dependencies:")
+        logging.info(dependencies)
 
         return dependencies
 
@@ -262,7 +261,7 @@ class Containerizer():
 
 
         if (exists):
-            print(f"La imagen '{imageName}' ya está presente en el registro")
+            logging.info(f"La imagen '{imageName}' ya está presente en el registro")
             return imageName
 
         dockerFileTemplate = f"""
@@ -277,7 +276,7 @@ class Containerizer():
 
         for dep in dependencies:
             if (isinstance(dep, ModuleType)):
-                print("module")
+                logging.info("module")
             else:
                 dockerFileTemplate += fr"COPY {dep} /usr/local/lib/python3.9/site-packages/{dep}"
 
@@ -286,13 +285,13 @@ class Containerizer():
         with open(os.path.join(dockerFilePath, "Dockerfile"), "w") as file:
             file.write(dockerFileTemplate)
 
-        print(f"Creating image {imageName}")
-        print(f"Dockerfile:\n{dockerFileTemplate}")
+        logging.info(f"Creating image {imageName}")
+        logging.info(f"Dockerfile:\n{dockerFileTemplate}")
         docker_client.images.build(path=dockerFilePath, tag=imageName)
 
         os.remove(os.path.join(dockerFilePath, "Dockerfile"))
 
-        print(f"Pushing image {imageName}")
+        logging.info(f"Pushing image {imageName}")
         docker_client.images.push(imageName)
 
         return imageName
@@ -304,7 +303,7 @@ class Containerizer():
             self.bucket, prefix=prefix, recursive=True)
         for obj in objects_to_delete:
             self.minioclient.remove_object(self.bucket, obj.object_name)
-        #print(f"Artifacts deleted from {prefix}")
+        #logging.info(f"Artifacts deleted from {prefix}")
 
     def upload_variable(
         self, 
@@ -319,7 +318,7 @@ class Containerizer():
             prefix += "/"
 
         self.minioclient.fput_object(
-            self.bucket, f"{BUCKET_PATH}/{self.id}/{prefix}{name}", f'{self.tmpFolder}/{name}.tmp',
+            self.bucket, f"{self.bucket_path}/{self.id}/{prefix}{name}", f'{self.tmpFolder}/{name}.tmp',
         )
 
         os.remove(f'{self.tmpFolder}/{name}.tmp')
@@ -333,7 +332,7 @@ class Containerizer():
             prefix += "/"
 
         self.minioclient.fget_object(
-            self.bucket, f"{BUCKET_PATH}/{self.id}/{prefix}{name}", f"{self.tmpFolder}/{name}.tmp")
+            self.bucket, f"{self.bucket_path}/{self.id}/{prefix}{name}", f"{self.tmpFolder}/{name}.tmp")
 
         with open(f"{self.tmpFolder}/{name}.tmp", "rb") as outfile:
             var = pickle.load(outfile)
@@ -362,7 +361,7 @@ class Containerizer():
                 break
 
             if resp.status.phase == 'Failed':
-                print(f"Pod '{self.podName}' failed, aborting...")
+                logging.info(f"Pod '{self.podName}' failed, aborting...")
                 return
 
             sleep(1)
@@ -376,13 +375,13 @@ class Containerizer():
                                                     namespace=self.namespace).status
                 start = resp.container_statuses[0].state.terminated.started_at
                 finish = resp.container_statuses[0].state.terminated.finished_at
-                print(f"Pod '{self.podName}' ha finalizado en {finish-start}")
+                logging.info(f"Pod '{self.podName}' ha finalizado en {finish-start}")
                 done = True
             except:
                 pass
                                             
 
-        self.delete_files(f"{BUCKET_PATH}/{self.id}/tmp")
+        self.delete_files(f"{self.bucket_path}/{self.id}/tmp")
         self.finished = True
 
     def dependencie_upload(self, name):
@@ -391,7 +390,7 @@ class Containerizer():
             self.upload_variable(self.dependencies[name], name,  prefix="tmp")
 
             return f"""
-minioclient.fget_object('{self.bucket}', '{BUCKET_PATH}/{self.id}/tmp/{name}', '/tmp/{name}')
+minioclient.fget_object('{self.bucket}', '{self.bucket_path}/{self.id}/tmp/{name}', '/tmp/{name}')
 with open(\'/tmp/{name}\', \'rb\') as input_file:
     {name} = pickle.load(input_file)
 
@@ -469,7 +468,7 @@ import __main__ as main_module
         code += f"""
 
 #Arguments
-minioclient.fget_object('{self.bucket}', '{BUCKET_PATH}/{self.id}/tmp/args', '/tmp/args')
+minioclient.fget_object('{self.bucket}', '{self.bucket_path}/{self.id}/tmp/args', '/tmp/args')
 with open(\'/tmp/args\', \'rb\') as input_file:
     args = pickle.load(input_file)
 
@@ -488,7 +487,7 @@ with open('/tmp/out', \'wb\') as handle:
 
 
 minioclient.fput_object(
-            '{self.bucket}', '{BUCKET_PATH}/{self.id}/output', '/tmp/out',
+            '{self.bucket}', '{self.bucket_path}/{self.id}/output', '/tmp/out',
 )
 
 
@@ -516,7 +515,7 @@ minioclient.fput_object(
             body=body,
             namespace=self.namespace)
 
-        print("\nLanzado el Pod: '" + podName + "'")
+        logging.info("\nLanzado el Pod: '" + podName + "'")
 
         self.podName = podName
         self.upload_variable(self.args, "args", prefix="tmp")
@@ -533,6 +532,6 @@ minioclient.fput_object(
 
         w = watch.Watch()
         for e in w.stream(self.kubeApi.read_namespaced_pod_log, name=podName, namespace=self.namespace,):
-            print(f"{Fore.GREEN}{podName}: {Fore.CYAN}{e}{Style.RESET_ALL}")
+            logging.info(f"{Fore.GREEN}{podName}: {Fore.CYAN}{e}{Style.RESET_ALL}")
 
         w.stop()

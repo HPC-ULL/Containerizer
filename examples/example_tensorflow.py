@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
-from containerizer.containerizer import Containerize
+from containerizer import Containerizer
+
 
 
 import tensorflow as tf
