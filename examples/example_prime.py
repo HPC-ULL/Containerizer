@@ -1,4 +1,5 @@
-from containerizer.containerizer import containerize
+from containerizer import containerize
+
 
 def is_prime(n: int) -> bool:
     if n <= 3:
@@ -14,7 +15,7 @@ def is_prime(n: int) -> bool:
     return True
 
 
-@containerize(minio_ip = "localhost:9000")
+@containerize()
 def print_primes(n):
     for i in range(n):
         if(is_prime(i)):
@@ -23,3 +24,7 @@ def print_primes(n):
     
 print_primes(100)
 
+
+def suma(a , b):
+    resultado = a + b
+    return resultado
