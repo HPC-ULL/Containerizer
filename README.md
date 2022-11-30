@@ -12,7 +12,7 @@ kubectl apply -f yamls/*
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install Containerizer.
 
 ```bash
-pip install pip install git+https://github.com/dsuarezl/Containerizer
+pip install pip install git+https://github.com/HPC-ULL/KubePipe
 ```
 
 ## Usage
